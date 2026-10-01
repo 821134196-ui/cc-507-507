@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>技能矩阵与排班授权系统</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">技</span>
+    <div>
+      <div class="brand-title">制造车间 · 技能矩阵与排班授权</div>
+      <div class="brand-sub">授权时段 / 设备型号 / 排班冲突 / 职责分离</div>
+    </div>
+  </div>
+  <div class="top-actions">
+    <label class="actor-picker">
+      当前操作人
+      <select id="actorSelect"></select>
+    </label>
+    <button class="btn btn-ghost" id="bellBtn">
+      通知 <span class="bell-count" id="bellCount" hidden>0</span>
+    </button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="matrix">技能矩阵</button>
+  <button class="tab" data-tab="schedule">排班拖拽</button>
+  <button class="tab" data-tab="training">培训证据</button>
+  <button class="tab" data-tab="notifications">到期提醒</button>
+</nav>
+
+<main>
+  <!-- ============ 技能矩阵 ============ -->
+  <section id="tab-matrix" class="tab-panel active">
+    <div class="panel-head">
+      <div>
+        <h2>技能矩阵</h2>
+        <p class="hint">工序为行、人员为列；格内为 <b>等级 / 有效期至</b>。虚框灰字为到期或失效状态。</p>
+      </div>
+      <div class="legend">
+        <span class="lg lg-ok">有效授权</span>
+        <span class="lg lg-warn">7 日内到期</span>
+        <span class="lg lg-off">到期 / 暂停 / 撤销</span>
+        <span class="lg lg-hr">◆ 高风险设备</span>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="matrix" id="matrixTable"></table>
+    </div>
+  </section>
+
+  <!-- ============ 排班 ============ -->
+  <section id="tab-schedule" class="tab-panel">
+    <div class="panel-head">
+      <div>
+        <h2>排班拖拽</h2>
+        <p class="hint">把下方<b>可替人员</b>拖入工位，或点击「排入」。缺口、可替人员、不可用原因同屏可见。</p>
+      </div>
+      <div class="shift-picker">
+        <label>班次
+          <select id="shiftSelect"></select>
+        </label>
+        <button class="btn btn-ghost" id="refreshShift">刷新</button>
+      </div>
+    </div>
+
+    <div id="conflictBanner" class="conflict-banner" hidden></div>
+
+    <div class="board" id="board"></div>
+
+    <div class="request-section">
+      <div class="section-title-row">
+        <h3>替岗申请与复核</h3>
+        <span class="hint" id="reviewRuleHint"></span>
+      </div>
+      <div id="requestList" class="request-list"></div>
+    </div>
+  </section>
+
+  <!-- ============ 培训证据 ============ -->
+  <section id="tab-training" class="tab-panel">
+    <div class="panel-head">
+      <div>
+        <h2>培训与考核证据</h2>
+        <p class="hint">考核由培训老师登记、他人审批；附件保存在本地 <code>data/attachments/</code>。</p>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <h3>登记考核</h3>
+        <form id="assessmentForm" class="form-grid">
+          <label>人员<select name="employee_id" required></select></label>
+          <label>工序<select name="process_id" required></select></label>
+          <label>设备型号<select name="model_id"><option value="">全型号</option></select></label>
+          <label>考核日期<input type="date" name="exam_date" required></label>
+          <label>成绩(分)<input type="number" name="score" min="0" max="100" required></label>
+          <label>成绩单附件<input type="file" name="evidence_file"></label>
+          <div class="form-actions">
+            <button class="btn btn-yellow" type="submit">提交登记（待审批）</button>
+          </div>
+        </form>
+      </div>
+      <div class="card">
+        <h3>登记培训记录</h3>
+        <form id="trainingForm" class="form-grid">
+          <label>人员<select name="employee_id" required></select></label>
+          <label>工序<select name="process_id" required></select></label>
+          <label>课程名称<input name="course" required placeholder="如 B200 换装培训"></label>
+          <label>培训日期<input type="date" name="trained_date" required></label>
+          <label>课时<input type="number" name="hours" step="0.5" value="4"></label>
+          <label>培训师<select name="trainer_id"></select></label>
+          <label>培训附件<input type="file" name="evidence_file"></label>
+          <div class="form-actions">
+            <button class="btn btn-yellow" type="submit">提交记录</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <h3 class="mt">考核记录</h3>
+    <div class="table-wrap">
+      <table class="grid" id="assessmentTable"></table>
+    </div>
+    <h3 class="mt">培训记录</h3>
+    <div class="table-wrap">
+      <table class="grid" id="trainingTable"></table>
+    </div>
+  </section>
+
+  <!-- ============ 通知 ============ -->
+  <section id="tab-notifications" class="tab-panel">
+    <div class="panel-head">
+      <div>
+        <h2>到期提醒与通知回执</h2>
+        <p class="hint">进程内定时任务扫描授权到期；每条通知生成模拟回执号，可查收。</p>
+      </div>
+      <button class="btn btn-ghost" id="runSweep">立即扫描一次</button>
+    </div>
+    <div id="notificationList" class="notif-list"></div>
+  </section>
+</main>
+
+<!-- 替岗申请弹窗 -->
+<div class="modal-mask" id="modalMask" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modalTitle">申请替岗</h3>
+      <button class="btn btn-ghost" id="modalClose">×</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<div id="toastStack" class="toast-stack"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
